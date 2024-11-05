@@ -1,73 +1,99 @@
-name: HA-5-11-24
+name: HA-5-11-24 # Name des Workflows
 
 on:
-  push:
-    branches: ["main"]
+  # push:
+    branches: ["main"] # Workflow wird ausgelöst, wenn Code auf den "main"-Branch gepusht wird
 
 jobs:
-  build:
-    runs-on: self-hosted
+  build: # Erster Job, der den Build-Prozess übernimmt
+    runs-on: self-hosted # Dieser Job läuft auf einem selbst-gehosteten Runner (z. B. eigener Server)
 
     steps:
-      - run: echo "Start Build Process"
+      - run: echo "Start Build Process" # Nachricht dass der Build-Prozess startet
 
-      - name: Checkout
-        uses: actions/checkout@v4.2.2
+      - name: Checkout # Schritt, um den Quellcode des Repositories herunterzuladen
+        uses: actions/checkout@v4.2.2 # Verwendet die GitHub Action "checkout" in Version 4.2.2
 
-      - name: Setup Node.js environment
-        uses: actions/setup-node@v4.1.0
+      - name: Setup Node.js environment # Schritt, um die Node.js-Umgebung einzurichten
+        uses: actions/setup-node@v4.1.0 # Verwendet die GitHub Action "setup-node" in Version 4.1.0
         with:
-          node-version: "22.x"
+          node-version: "22.x" # Legt fest, dass Node.js Version 22 verwendet wird
 
-      - name: check code and install dependencies
+      - name: Check code and install dependencies # Schritt, um Node.js-Version zu prüfen und Abhängigkeiten zu installieren
         run: |
-          ls 
-          node -v
-          npm ci
-
-      - name: build
+          ls  # Listet Dateien im aktuellen Verzeichnis (zur Überprüfung)
+          node -v  # Zeigt die installierte Node.js-Version an
+          npm ci  # Installiert alle Abhängigkeiten, die im Projekt benötigt werden
+      # ls = Listet Dateien im aktuellen Verzeichnis (zur Überprüfung)
+      # node -v = Zeigt die installierte Node.js-Version an
+      # npm ci = Installiert alle Abhängigkeiten, die im Projekt benötigt werden
+    
+      - name: Build # Schritt, um das Projekt zu bauen/kompilieren
         run: |
           npm run build
           ls
+        # Führt den Build-Befehl aus, der in der package.json definiert ist
+        # Listet Dateien im aktuellen Verzeichnis, um sicherzustellen, dass der Build erfolgreich war
 
-      - name: Upload a Build Artifact
-        uses: actions/upload-artifact@v4.4.3
+      - name: Upload a Build Artifact # Schritt, um die erstellten Dateien zu speichern
+        uses: actions/upload-artifact@v4.4.3 # Verwendet die GitHub Action "upload-artifact" in Version 4.4.3
         with:
-          name: dist-files
-          path: ./dist
+          name: dist-files # Name des Artefakts, damit es im nächsten Job gefunden werden kann
+          path: ./dist # Speicherort der erstellten Dateien (in diesem Fall der "dist"-Ordner)
 
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
+  deploy: # Zweiter Job, der den Deploy-Prozess übernimmt
+    runs-on: ubuntu-latest # Dieser Job läuft auf einer Ubuntu-Umgebung, die GitHub bereitstellt
+    needs: build # Legt fest, dass dieser Job erst startet, wenn der Build-Job abgeschlossen ist
+
     steps:
-      - name: Download a Build Artifact
-        uses: actions/download-artifact@v4.1.8
+      - name: Download a Build Artifact # Schritt, um die erstellten Dateien herunterzuladen
+        uses: actions/download-artifact@v4.1.8 # Verwendet die GitHub Action "download-artifact" in Version 4.1.8
         with:
-          name: dist-files
-          path: ./dist
+          name: dist-files # Name des herunterzuladenden Artefakts, wie oben definiert
+          path: ./dist # Speicherort für die heruntergeladenen Dateien
 
-      - run: ls
+      - run: ls # Listet Dateien im aktuellen Verzeichnis zur Überprüfung, dass die Dateien erfolgreich heruntergeladen wurden
 
-      # Install AWS CLI
-      - name: install-aws-cli-action
-        uses: unfor19/install-aws-cli-action@v1
+      # Installiere AWS CLI, um Befehle für Amazon Web Services auszuführen
+      - name: Install AWS CLI
+        uses: unfor19/install-aws-cli-action@v1 # Verwendet eine Aktion, um AWS CLI zu installieren
 
-      # Configure AWS credentials
+      # Konfiguriere AWS Zugangsdaten für den Zugriff auf S3
       - name: Configure AWS credentials
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }} # AWS Zugangsschlüssel-ID, wird als Geheimnis gespeichert
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }} # AWS Geheimschlüssel, wird ebenfalls als Geheimnis gespeichert
         run: |
-          mkdir -p ~/.aws
-          echo "[default]" > ~/.aws/credentials
-          echo "aws_access_key_id=${AWS_ACCESS_KEY_ID}" >> ~/.aws/credentials
-          echo "aws_secret_access_key=${AWS_SECRET_ACCESS_KEY}" >> ~/.aws/credentials
+          mkdir -p ~/.aws  # Erstellt das .aws-Verzeichnis im Home-Verzeichnis
+          echo "[default]" > ~/.aws/credentials  # Erstellt eine AWS-Konfigurationsdatei
+          echo "aws_access_key_id=${AWS_ACCESS_KEY_ID}" >> ~/.aws/credentials  # Fügt die AWS Zugangsschlüssel-ID hinzu
+          echo "aws_secret_access_key=${AWS_SECRET_ACCESS_KEY}" >> ~/.aws/credentials  # Fügt den AWS Geheimschlüssel hinzu
 
-      # Verify AWS configuration
+      # Überprüfe, ob die AWS-Konfiguration erfolgreich ist, indem Profile angezeigt werden
       - run: aws configure list-profiles
 
-      # List S3 buckets to verify access
+      # Liste die S3-Buckets auf, um sicherzustellen, dass der Zugriff funktioniert
       - run: aws s3 ls --region eu-central-1
 
-      # Sync build files to S3 bucket
+      # Synchronisiere die erstellten Dateien in den S3-Bucket
       - run: aws s3 sync --region eu-central-1 ./dist s3://ha-5-11-24/
+# Anleitung zur Konfiguration
+
+# AWS Konfiguration
+
+# 1. **EC2 Instance Einrichten:**
+#    - Gehe zu AWS EC2 und starte eine neue Instanz (z.B. Ubuntu).
+#    - Stelle sicher, dass die Sicherheitsgruppen den SSH-Zugriff (Port 22) und andere benötigte Ports öffnen.
+#    - Installiere einen selbst-gehosteten GitHub Runner gemäß der [offiziellen Anleitung](https://docs.github.com/en/actions/hosting-your-own-runners/adding-self-hosted-runners).
+
+# 2. **IAM Benutzer und Berechtigungen:**
+#    - Erstelle einen IAM-Benutzer mit Programmzugriff.
+#    - Weise dem Benutzer die Berechtigungen für den Zugriff auf S3 (z.B. `AmazonS3FullAccess` oder spezifische Berechtigungen, die für dein Projekt erforderlich sind).
+#    - Kopiere die AWS Zugangsschlüssel-ID und den geheimen Schlüssel und speichere sie in den GitHub Secrets deines Repositorys (unter `Settings > Secrets and variables > Actions > New repository secret`):
+#      - `AWS_ACCESS_KEY_ID`
+#      - `AWS_SECRET_ACCESS_KEY`
+
+# GitHub Secrets Einrichten
+
+# - Gehe zu deinem GitHub-Repository und navigiere zu **Settings > Secrets and variables > Actions**.
+# - Klicke auf **New repository secret** und füge die beiden Geheimnisse (Zugangsschlüssel und geheimen Schlüssel) hinzu.
