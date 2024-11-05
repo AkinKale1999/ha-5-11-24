@@ -48,12 +48,26 @@ jobs:
 
       - run: ls
 
+      # Install AWS CLI
       - name: install-aws-cli-action
         uses: unfor19/install-aws-cli-action@v1
-      - run: mkdir ~/.aws/
-      - run: echo "$super_secret" > ~/.aws/credentials
+
+      # Configure AWS credentials
+      - name: Configure AWS credentials
         env:
-          super_secret: ${{ secrets.AWS_CONFIG }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          mkdir -p ~/.aws
+          echo "[default]" > ~/.aws/credentials
+          echo "aws_access_key_id=${AWS_ACCESS_KEY_ID}" >> ~/.aws/credentials
+          echo "aws_secret_access_key=${AWS_SECRET_ACCESS_KEY}" >> ~/.aws/credentials
+
+      # Verify AWS configuration
       - run: aws configure list-profiles
-      - run: aws s3 ls --region eu-central-1 --akin.kale@edu.techstarter.de
-      - run: aws s3 sync --region eu-central-1 ./dist s3://ha-5-11-24/ --akin.kale@edu.techstarter.de
+
+      # List S3 buckets to verify access
+      - run: aws s3 ls --region eu-central-1
+
+      # Sync build files to S3 bucket
+      - run: aws s3 sync --region eu-central-1 ./dist s3://ha-5-11-24/
